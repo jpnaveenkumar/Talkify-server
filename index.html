@@ -1,0 +1,106 @@
+<!DOCTYPE HTML>
+
+<html>
+   <head>
+      
+      <script type = "text/javascript">
+         var _channelName;
+         var _userId;
+         var _userName;
+         var _ws;
+         function createChannel()
+         {  
+            console.log("create called");
+            var userName = document.getElementById("userName").value;
+            var channelName = document.getElementById("channelName").value;
+            var headers = {};
+            headers['Content-Type'] = 'application/json';
+            var body = {
+               "channelName" : channelName,
+               "userName" : userName
+            }
+            fetch('http://localhost:3000/create',{
+               method: "post",
+               headers: headers,
+               body: JSON.stringify(body)
+            }).then((data)=>{
+               return data.json();
+            }).then((data)=>{
+               _channelName = data["channelName"];
+               _userName = userName;
+               _userId = data["userId"];
+               establishWebSocket();
+            });
+         }
+         function joinChannel()
+         {
+            var userName = document.getElementById("userName").value;
+            var channelName = document.getElementById("channelName").value;
+            var headers = {};
+            headers['Content-Type'] = 'application/json';
+            var body = {
+               "channelName" : channelName,
+               "userName" : userName
+            }
+            fetch('http://localhost:3000/join',{
+               method: "post",
+               headers: headers,
+               body: JSON.stringify(body)
+            }).then((data)=>{
+               return data.json();
+            }).then((data)=>{
+               _channelName = data["channelName"];
+               _userName = userName;
+               _userId = data["userId"];
+               establishWebSocket();
+            });
+         }
+         function sendMessage(){
+            var message = document.getElementById("Message").value;
+            var obj = {};
+            obj["senderId"] = _userId;
+            obj["message"] = message;
+            obj["channelName"] = _channelName;
+            _ws.send(JSON.stringify(obj));
+         }
+         function establishWebSocket() {
+            
+               // Let us open a web socket
+               var ws = new WebSocket("ws://localhost:3000/channel/"+_userId+"/"+_channelName);
+               _ws = ws;
+               ws.onopen = function() {
+                  
+                  // Web Socket is connected, send data using send()
+                  //ws.send("Message to send");
+                  alert("Message is sent...");
+               };
+				
+               ws.onmessage = function (evt) { 
+                  var received_msg = evt.data;
+                  console.log(received_msg);
+                  alert("Message is received..."+received_msg);
+               };
+				
+               ws.onclose = function() { 
+                  
+                  // websocket is closed.
+                  alert("Connection is closed..."); 
+               };
+         }
+      </script>
+		
+   </head>
+   
+   <body>
+       username : <input type="text" id="userName"/>
+       channelName : <input type="text" id="channelName"/>
+       <button id="createChannel" onclick="createChannel()">create channel</button>
+       <button id="joinChannel" onclick="joinChannel()">join channel</button>
+       <input type="text" id="Message">
+       <button id="sendMessage" onclick="sendMessage()">send</button>
+      <div id = "sse">
+         <a href = "javascript:WebSocketTest()">Run WebSocket</a>
+      </div>
+      
+   </body>
+</html>
