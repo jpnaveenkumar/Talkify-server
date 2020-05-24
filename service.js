@@ -1,4 +1,5 @@
 const { v1: uuidv1 } = require('uuid');
+const constants = require('./constants');
 var channels = {};
 var users = {}
 module.exports = {
@@ -69,30 +70,67 @@ module.exports = {
         result["data"] = response;
         res.json(result);
     },
-
+    updateUserInChannel: function(userId,channelName,ws){
+        var usersList = channels[channelName]["users"];
+        for(var index = 0; index < usersList.length; index++){
+            if(usersList[index]["userId"] == userId){
+                usersList[index]["ws"] = ws;
+                return true;
+            }
+        }
+        users[userId]["ws"] = ws;
+        channels[channelName]["users"].push(users[userId]);
+    },
     establishSocketConnection : function(ws,req){
         var channelName = req.params["channelName"];
         var userId = req.params["userId"];
         var response = {};
+        response["message_type"] = "Connection_Status";
         if(channelName in channels){
-            users[userId]["ws"] = ws;
-            channels[channelName]["users"].push(users[userId]);
-            response["message"] = "Connection establised with Channel";
+            if(userId in users){
+                module.exports.updateUserInChannel(userId,channelName,ws);
+                response["status"] = constants.SUCCESS;
+                response["message"] = "Connection establised with Channel";
+            }else{
+                response["status"] = constants.INVALID_DATA;
+                response["message"] = "Invalid User";
+            }
         }else{
-            response["message"] = "invalid Channel Name";
+            response["status"] = constants.INVALID_DATA;
+            response["message"] = "Invalid Channel Name";
         }
-        ws.on('message',function(msg){
+        ws.on('message',handleSocketResponse);
+        ws.send(JSON.stringify(response));
+
+        function validateInput(channelName, senderId, message)
+        {
+            var error = 0;
+            if(message == "") { error++; } 
+            if((channelName in channels) == false) { error++; }
+            if((senderId in users) == false) { error++; }
+            return error == 0 ? true : false; 
+        }
+
+        function handleSocketResponse(msg){
             var body = JSON.parse(msg);
             var channelName = body["channelName"];
             var senderId = body["senderId"];
             var message = body["message"];
             var result = {};
+            result["message_type"] = "Chat_Message";
+            if(!validateInput(channelName,senderId,message)){
+                result["status"] = constants.INVALID_DATA;
+                result["message"] = "Invalid Credentials";
+                user[senderId]["ws"].send(JSON.stringify(result));
+                return;
+            }
+            result["status"] = constants.SUCCESS;
             result["message"] = message; 
+            result["sender_name"] = users[senderId]["userName"];
             var usersList = channels[channelName]["users"];
             for(var index = 0; index < usersList.length; index++){
                 usersList[index]["ws"].send(JSON.stringify(result));
             }
-        });
-        ws.send(JSON.stringify(response));
+        }
     }
 }
