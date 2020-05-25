@@ -116,6 +116,7 @@ module.exports = {
             var channelName = body["channelName"];
             var senderId = body["senderId"];
             var message = body["message"];
+            var isAnonymous = body["isAnonymous"]
             var result = {};
             result["message_type"] = "Chat_Message";
             if(!validateInput(channelName,senderId,message)){
@@ -125,8 +126,12 @@ module.exports = {
                 return;
             }
             result["status"] = constants.SUCCESS;
-            result["message"] = message; 
-            result["sender_name"] = users[senderId]["userName"];
+            result["message"] = message;
+            if(!isAnonymous){
+                result["sender_name"] = users[senderId]["userName"];
+            }else{
+                result["sender_name"] = "Anonymous";
+            }
             var usersList = channels[channelName]["users"];
             for(var index = 0; index < usersList.length; index++){
                 usersList[index]["ws"].send(JSON.stringify(result));
