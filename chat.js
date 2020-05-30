@@ -11,9 +11,11 @@ app.use(function(req, res, next) {
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
     next();
   });
+app.get('/members',service.getMembersByChannelName);
 app.get('/isChannelExists',service.isChannelExists);
 app.post('/create',service.createChannel);
 app.post('/join',service.joinChannel);
+app.post('/terminate',service.terminateUserFromChannel);
 app.ws('/channel/:userId/:channelName',service.establishSocketConnection);
 app.get('/', function (req, res) {
     res.sendFile(__dirname + '\\index.html');

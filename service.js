@@ -4,6 +4,48 @@ var channels = {};
 var users = {}
 module.exports = {
 
+    broadCastMemberInfo: (channelName, result) => {
+        if(channelName in channels){
+            var usersList = channels[channelName]["users"];
+            console.log("broadcasting message....");
+            for(var index = 0; index < usersList.length; index++){
+                usersList[index]["ws"].send(JSON.stringify(result));
+            }
+        }
+    },
+    terminateChannel: (channelName) => {
+        if(channelName in channels && channels[channelName]["users"].length == 0){
+            delete channels[channelName];
+        }
+    },
+    terminateUserFromChannel : (req, res) => {
+        var data = req.body;
+        var channelName = data["channelName"];
+        var userId = data["userId"];
+        if(channelName in channels){
+            if(userId in users){
+                var indexToDelete = -1;
+                var usersList = channels[channelName]["users"];
+                for(var index = 0; index < usersList.length; index++){
+                    if(usersList[index]["userId"] == userId){
+                        indexToDelete = index;
+                        break;
+                    }
+                }
+                channels[channelName]["users"].splice(indexToDelete,1);
+                delete users[userId];
+                var response = {};
+                response["message_type"] = "Member_Info";
+                response["status"] = 200;
+                response["action"] = "remove";
+                response["userId"] = userId;
+                module.exports.broadCastMemberInfo(channelName,response);
+                module.exports.terminateChannel(channelName);
+                res.status(200);
+                res.json({"message":"success"});
+            }
+        }
+    },
     joinChannel : (req,res)=>{
         var data = req.body;
         var channelName = data["channelName"];
@@ -28,15 +70,40 @@ module.exports = {
         res.json(result);
     },
 
+    getMembersByChannelName: function(req, res){
+        var channelName = req.query.channel;
+        console.log(channelName,channels);
+        var response = {};
+        if(channelName in channels){
+            var members = channels[channelName]["users"];
+            response["data"] = members;
+            res.status(200);
+        }else{
+            res.status(400);
+            response["message"] = "Channel Doesn't Exists";
+        }
+        res.json(response);
+    },
+
     isChannelExists : function(req,res){
         var channelName = req.query.channel;
+        var softCreate = req.query.softCreate;
         var response = {}
         if(channelName in channels){
             res.status(200);
             response["message"] = "Channel Exists";
         }else{
-            res.status(400);
-            response["message"] = "Channel Does not Exists";
+            if(softCreate){
+                channels[channelName] = {
+                    "name" : channelName,
+                    "users" : []
+                };
+                res.status(200);
+                response["message"] = "Channel Exists";
+            }else{
+                res.status(400);
+                response["message"] = "Channel Does not Exists";
+            }
         }
         var result = {};
         result["data"] = response;
@@ -82,6 +149,7 @@ module.exports = {
         channels[channelName]["users"].push(users[userId]);
     },
     establishSocketConnection : function(ws,req){
+        //console.log(ws);
         var channelName = req.params["channelName"];
         var userId = req.params["userId"];
         var response = {};
@@ -99,8 +167,26 @@ module.exports = {
             response["status"] = constants.INVALID_DATA;
             response["message"] = "Invalid Channel Name";
         }
+
         ws.on('message',handleSocketResponse);
+        ws.on('open',connectionOpen);
+        ws.on('close',connectionClose);
         ws.send(JSON.stringify(response));
+        setTimeout(function(){
+            var response = {};
+            response["message_type"] = "Member_Info";
+            response["status"] = 200;
+            response["action"] = "add";
+            response["user"] = users[userId];
+            module.exports.broadCastMemberInfo(channelName,response);
+        },5000);
+        function connectionOpen(){
+            console.log("connection opened");
+        }
+
+        function connectionClose(){
+            console.log("connection closed");
+        }
 
         function validateInput(channelName, senderId, message)
         {
