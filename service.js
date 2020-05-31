@@ -4,6 +4,37 @@ var channels = {};
 var users = {}
 module.exports = {
 
+    handlePrivateMessage: (req, res) => {
+        var data = req.body;
+        var channelName = data["channelName"];
+        var senderId = data["senderId"];
+        var receiverId = data["receiverId"];
+        var message = data["message"];
+        var isAnonymous = data["isAnonymous"];
+        var response = {}
+        if(channels[channelName] && users[senderId] && users[receiverId] && message){
+            var result = {};
+            result["message_type"] = "Chat_Message";
+            result["status"] = constants.SUCCESS;
+            result["message"] = message;
+            result["isPrivate"] = true;
+            if(!isAnonymous){
+                result["sender_name"] = users[senderId]["userName"];
+                result["senderId"] = senderId;
+            }else{
+                result["sender_name"] = "Anonymous";
+            }
+            users[senderId]["ws"].send(JSON.stringify(result));
+            users[receiverId]["ws"].send(JSON.stringify(result));
+            res.status(201);
+            response["data"] = { "message":"SUCCESS"};
+        }else{
+            res.status(400);
+            response["data"] = { "message":"BAD REQUEST"};
+        }
+        res.json(response);
+    },
+
     broadCastMemberInfo: (channelName, result) => {
         if(channelName in channels){
             var usersList = channels[channelName]["users"];
@@ -213,8 +244,10 @@ module.exports = {
             }
             result["status"] = constants.SUCCESS;
             result["message"] = message;
+            result["isPrivate"] = false;
             if(!isAnonymous){
                 result["sender_name"] = users[senderId]["userName"];
+                result["senderId"] = senderId;
             }else{
                 result["sender_name"] = "Anonymous";
             }

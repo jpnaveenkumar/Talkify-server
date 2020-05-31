@@ -16,6 +16,7 @@ app.get('/isChannelExists',service.isChannelExists);
 app.post('/create',service.createChannel);
 app.post('/join',service.joinChannel);
 app.post('/terminate',service.terminateUserFromChannel);
+app.post('/privateMessage',service.handlePrivateMessage);
 app.ws('/channel/:userId/:channelName',service.establishSocketConnection);
 app.get('/', function (req, res) {
     res.sendFile(__dirname + '\\index.html');
