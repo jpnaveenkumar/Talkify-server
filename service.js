@@ -40,7 +40,13 @@ module.exports = {
             var usersList = channels[channelName]["users"];
             console.log("broadcasting message....");
             for(var index = 0; index < usersList.length; index++){
-                usersList[index]["ws"].send(JSON.stringify(result));
+                try{
+                    usersList[index]["ws"].send(JSON.stringify(result));
+                }
+                catch(err){
+                    console.log("error while sending message for user ",usersList[index]);
+                    console.log(err);
+                }
             }
         }
     },
@@ -118,7 +124,7 @@ module.exports = {
 
     isChannelExists : function(req,res){
         var channelName = req.query.channel;
-        var softCreate = req.query.softCreate;
+        var softCreate = req.query.softCreate == 'true';
         var response = {}
         if(channelName in channels){
             res.status(200);
@@ -204,11 +210,13 @@ module.exports = {
         ws.on('close',connectionClose);
         ws.send(JSON.stringify(response));
         setTimeout(function(){
+            var userObj = {...users[userId]};
+            userObj["ws"] = null;
             var response = {};
             response["message_type"] = "Member_Info";
             response["status"] = 200;
             response["action"] = "add";
-            response["user"] = users[userId];
+            response["user"] = userObj;
             module.exports.broadCastMemberInfo(channelName,response);
         },5000);
         function connectionOpen(){
