@@ -55,33 +55,37 @@ module.exports = {
             delete channels[channelName];
         }
     },
+    handleTerminateUser : (channelName, userId) => {
+      console.log(channelName+ " " +userId);
+      if(channelName in channels){
+          if(userId in users){
+              var indexToDelete = -1;
+              var usersList = channels[channelName]["users"];
+              for(var index = 0; index < usersList.length; index++){
+                  if(usersList[index]["userId"] == userId){
+                      indexToDelete = index;
+                      break;
+                  }
+              }
+              channels[channelName]["users"].splice(indexToDelete,1);
+              delete users[userId];
+              var response = {};
+              response["message_type"] = "Member_Info";
+              response["status"] = 200;
+              response["action"] = "remove";
+              response["userId"] = userId;
+              module.exports.broadCastMemberInfo(channelName,response);
+              module.exports.terminateChannel(channelName);
+          }
+      }
+    },
     terminateUserFromChannel : (req, res) => {
         var data = req.body;
         var channelName = data["channelName"];
         var userId = data["userId"];
-        if(channelName in channels){
-            if(userId in users){
-                var indexToDelete = -1;
-                var usersList = channels[channelName]["users"];
-                for(var index = 0; index < usersList.length; index++){
-                    if(usersList[index]["userId"] == userId){
-                        indexToDelete = index;
-                        break;
-                    }
-                }
-                channels[channelName]["users"].splice(indexToDelete,1);
-                delete users[userId];
-                var response = {};
-                response["message_type"] = "Member_Info";
-                response["status"] = 200;
-                response["action"] = "remove";
-                response["userId"] = userId;
-                module.exports.broadCastMemberInfo(channelName,response);
-                module.exports.terminateChannel(channelName);
-                res.status(200);
-                res.json({"message":"success"});
-            }
-        }
+        module.exports.handleTerminateUser(channelName, userId);
+        res.status(200);
+        res.json({"message":"success"});
     },
     joinChannel : (req,res)=>{
         var data = req.body;
@@ -219,21 +223,24 @@ module.exports = {
             response["user"] = userObj;
             module.exports.broadCastMemberInfo(channelName,response);
         },5000);
+
         function connectionOpen(){
             console.log("connection opened");
         }
 
         function connectionClose(){
             console.log("connection closed");
+            console.log(channelName+ " " +userId);
+            module.exports.handleTerminateUser(channelName, userId);
         }
 
         function validateInput(channelName, senderId, message)
         {
             var error = 0;
-            if(message == "") { error++; } 
+            if(message == "") { error++; }
             if((channelName in channels) == false) { error++; }
             if((senderId in users) == false) { error++; }
-            return error == 0 ? true : false; 
+            return error == 0 ? true : false;
         }
 
         function handleSocketResponse(msg){
